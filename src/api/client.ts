@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -9,30 +9,14 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach access token to every request
-api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+// Adjunta el token de Supabase a cada petición
+api.interceptors.request.use(async (config) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
   return config;
 });
 
-// Auto-refresh on 401
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const refreshToken = useAuthStore.getState().refreshToken;
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-        useAuthStore.getState().setTokens(data.accessToken, data.refreshToken);
-        original.headers.Authorization = `Bearer ${data.accessToken}`;
-        return api(original);
-      } catch {
-        useAuthStore.getState().logout();
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+// Si el token expiró, Supabase lo refresca automáticamente
+// No necesitamos el interceptor de respuesta manual del código anterior
