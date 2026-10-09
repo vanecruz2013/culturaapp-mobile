@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParams } from '../../navigation/AppNavigator';
-import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParams, 'Login'> };
@@ -15,7 +14,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const signIn = useAuthStore((s) => s.signIn);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -24,10 +23,12 @@ export default function LoginScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      const data = await authApi.login({ email: email.trim(), password });
-      await setAuth(data.user, data.accessToken, data.refreshToken);
+      await signIn(email.trim(), password);
+      // La navegación cambia automáticamente al detectar la sesión
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Error al iniciar sesión';
+      const msg = err.message?.includes('Invalid login')
+        ? 'Email o contraseña incorrectos'
+        : err.message || 'Error al iniciar sesión';
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
@@ -71,19 +72,11 @@ export default function LoginScreen({ navigation }: Props) {
             onPress={handleLogin}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel="Iniciar sesión"
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Iniciar sesión</Text>
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Iniciar sesión</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('Register')}
-          >
+          <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Register')}>
             <Text style={styles.linkText}>¿No tienes cuenta? Regístrate</Text>
           </TouchableOpacity>
         </View>
@@ -99,22 +92,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 40 },
   form: { gap: 8 },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginTop: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#FAFAFA',
-    color: '#333',
-  },
-  button: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
+  input: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, padding: 14, fontSize: 16, backgroundColor: '#FAFAFA', color: '#333' },
+  button: { backgroundColor: '#6C63FF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   linkButton: { alignItems: 'center', marginTop: 16 },
